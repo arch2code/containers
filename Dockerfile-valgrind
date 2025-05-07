@@ -1,0 +1,124 @@
+FROM ubuntu:22.04 AS prod-build
+
+ARG TAGNAME=null
+
+SHELL ["/bin/bash", "-c"]
+RUN apt-get -y update --fix-missing
+RUN apt-get -y upgrade
+RUN apt-get -y install make cmake git curl --no-install-recommends
+RUN apt-get -y install clang clang-format-14 --no-install-recommends
+RUN DEBIAN_FRONTEND=noninteractive apt-get -qq install default-jre --no-install-recommends
+RUN apt-get -y install python3 python3-pip --no-install-recommends
+RUN apt-get -y install graphviz --no-install-recommends
+# below library is used for stupid host
+RUN apt-get -y install libyaml-cpp-dev --no-install-recommends
+
+# the -qq is very quite and implies -y, used to avoid geographic questions during build
+RUN DEBIAN_FRONTEND=noninteractive apt-get -qq install libboost-all-dev --no-install-recommends
+
+# making ENV and calling nvm.sh and installing
+#   source https://stackoverflow.com/a/62838796/8980882
+#   last step ie the npm command is to install antora 3.0
+# certificates used by nvm, pip3, and probably more
+RUN apt-get -y install ca-certificates
+ENV XDG_CONFIG_HOME=/usr/local
+RUN mkdir -p ${XDG_CONFIG_HOME}
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+ENV NVM_DIR=/usr/local/nvm
+RUN /bin/bash -c "source $NVM_DIR/nvm.sh && nvm install 20 --alias=default && npm install -g @antora/cli@3.1 @antora/site-generator@3.1"
+# make path to $NVM_BIN resilient to nvm release version updates
+RUN source $NVM_DIR/nvm.sh && ln -s `dirname $NVM_BIN` `nvm_version_dir`/default
+ENV PATH=$NVM_DIR/versions/node/default/bin:$PATH
+
+# enables color terminal by default
+ENV TERM=xterm-256color
+
+# Compile fmt library
+RUN git clone https://github.com/fmtlib/fmt.git --depth 1 --branch 10.2.1 /usr/local/src/fmt
+RUN mkdir -p /usr/local/src/fmt/build
+WORKDIR /usr/local/src/fmt/build
+RUN cmake --install-prefix=/usr -DBUILD_SHARED_LIBS=TRUE ..
+RUN make fmt install/fast clean
+
+WORKDIR /
+
+# Thse are needed by systemc
+RUN apt-get -y install build-essential lldb gdb # try without lld
+RUN apt-get -y install libtool libltdl-dev
+RUN apt-get -y install valgrind
+
+RUN git clone https://github.com/accellera-official/systemc.git --depth 1 --branch 2.3.4 /usr/local/src/systemc
+WORKDIR /usr/local/src/systemc
+RUN autoupdate
+RUN aclocal && automake --add-missing
+RUN autoreconf
+RUN mkdir -p objdir
+WORKDIR objdir
+RUN ../configure --prefix=/usr --with-unix-layout CXXFLAGS="-DSC_DISABLE_COPYRIGHT_MESSAGE -DSC_CPLUSPLUS=201703L -gdwarf-4" --enable-debug --enable-pthreads
+RUN make -j `nproc`
+RUN make install clean
+
+WORKDIR /
+
+# Set environment variables for SystemC and boost
+ENV SC_BASE=/usr
+ENV SYSTEMC_INCLUDE=/usr/include
+ENV SYSTEMC_LIBDIR=/urs/lib
+ENV BOOST_INCLUDE=/usr/include/boost
+ENV LD_BOOST=/lib64
+
+# purge libs for systemc install
+RUN apt-get -y purge build-essential
+RUN apt-get -y purge libtool libltdl-dev
+RUN apt-get -y purge g++
+
+# Now install verilator, this takes an hour or so
+
+# No need to install python3 or make they area already installed
+#RUN apt-get -y install git perl python3 make autoconf g++ flex bison ccache
+# without g++ only use clang symlinks above
+RUN apt-get -y install help2man perl autoconf flex bison ccache mold --no-install-recommends
+RUN apt-get -y install libgoogle-perftools-dev numactl perl-doc --no-install-recommends
+RUN apt-get -y install libfl2 --no-install-recommends
+RUN apt-get -y install libfl-dev --no-install-recommends
+#RUN apt-get -y install zlibc zlib1g zlib1g-dev
+# zlibc not found in 22.04
+RUN apt-get -y install zlib1g zlib1g-dev --no-install-recommends
+
+RUN git config --global http.sslverify false
+RUN git clone https://github.com/verilator/verilator --depth 1 --branch v5.036 /usr/local/src/verilator
+
+# Every time you need to build:
+RUN unset VERILATOR_ROOT
+WORKDIR /usr/local/src/verilator
+
+RUN autoconf
+RUN ./configure
+RUN make -j `nproc`
+RUN make install clean
+
+# Once complete try to remove autoconf, flex and bison, and certs
+RUN apt-get -y purge autoconf flex bison
+RUN apt-get clean
+#RUN apt -y autoremove # <- this unfortunatley removes boost libraries so we can't do that
+
+WORKDIR /
+
+RUN rm -rf /var/lib/apt/lists/*
+
+RUN touch /a2c-dev:${TAGNAME}
+
+# test build target (for validation of the prod-build image on CI instance)
+FROM prod-build AS test-build
+
+ARG USERNAME=
+ARG USER_UID=
+ARG USER_GID=
+
+# Create container test user (non-root)
+RUN groupadd -f -g ${USER_GID} ${USERNAME}
+RUN useradd ${USERNAME} -m -d /home/${USERNAME} -u ${USER_UID} -g ${USER_GID} -s /bin/bash
+RUN passwd -de ${USERNAME}
+
+USER ${USERNAME}
+
