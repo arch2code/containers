@@ -2,7 +2,7 @@ FROM ubuntu:22.04 AS prod-build
 
 ARG TAGNAME=null
 
-#SHELL ["/bin/bash", "-c"]
+SHELL ["/bin/bash", "-c"]
 
 RUN apt-get -y update --fix-missing
 RUN apt-get -y upgrade
@@ -13,10 +13,8 @@ RUN apt-get -y install ca-certificates
 # 1- Add the LLVM APT repository key
 RUN mkdir -p /etc/apt/keyrings
 RUN curl -o /etc/apt/keyrings/llvm.asc https://apt.llvm.org/llvm-snapshot.gpg.key
-RUN cat /etc/apt/keyrings/llvm.asc
 # 2- Add the repository for llvm 20 to apt sources
 RUN echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/llvm.asc] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list
-RUN cat /etc/apt/sources.list.d/llvm20.list
 
 # 3- Update package lists
 RUN apt-get -y update 
@@ -95,7 +93,7 @@ RUN apt-get -y install libgoogle-perftools-dev numactl --no-install-recommends
 RUN apt-get -y install libfl-dev libgoogle-perftools-dev numactl --no-install-recommends
 
 RUN git config --global http.sslverify false
-RUN git clone https://github.com/verilator/verilator --depth 1 --branch v5.036 /usr/local/src/verilator
+RUN git clone https://github.com/verilator/verilator --depth 1 --branch v5.038 /usr/local/src/verilator
 
 # Every time you need to build:
 RUN unset VERILATOR_ROOT
