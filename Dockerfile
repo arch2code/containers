@@ -3,24 +3,39 @@ FROM ubuntu:22.04 AS prod-build
 ARG TAGNAME=null
 
 SHELL ["/bin/bash", "-c"]
+
 RUN apt-get -y update --fix-missing
 RUN apt-get -y upgrade
 RUN apt-get -y install make cmake git curl --no-install-recommends
-RUN apt-get -y install clang clang-format-14 --no-install-recommends
+RUN apt-get -y install ca-certificates
+
+# LLVM 20 repository setup in 22.04
+# 1- Add the LLVM APT repository key
+RUN mkdir -p /etc/apt/keyrings
+RUN curl -o /etc/apt/keyrings/llvm.asc https://apt.llvm.org/llvm-snapshot.gpg.key
+# 2- Add the repository for llvm 20 to apt sources
+RUN echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/llvm.asc] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list
+
+# 3- Update package lists
+RUN apt-get -y update 
+# 4- Install Clang 20 and related tools
+RUN apt-get -y install clang-20 clang-format-20 --no-install-recommends
+RUN cd /usr/bin && ln -s ../lib/llvm-20/bin/clang clang
+RUN cd /usr/bin && ln -s ../lib/llvm-20/bin/clang++ clang++
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq install default-jre --no-install-recommends
 RUN apt-get -y install python3 python3-pip --no-install-recommends
 RUN apt-get -y install graphviz --no-install-recommends
-# below library is used for stupid host
+
+# c++ yaml parser library
 RUN apt-get -y install libyaml-cpp-dev --no-install-recommends
 
-# the -qq is very quite and implies -y, used to avoid geographic questions during build
+# the -qq is very quiet and implies -y, used to avoid geographic questions during build
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq install libboost-all-dev --no-install-recommends
 
 # making ENV and calling nvm.sh and installing
 #   source https://stackoverflow.com/a/62838796/8980882
 #   last step ie the npm command is to install antora 3.0
 # certificates used by nvm, pip3, and probably more
-RUN apt-get -y install ca-certificates
 ENV XDG_CONFIG_HOME=/usr/local
 RUN mkdir -p ${XDG_CONFIG_HOME}
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
@@ -53,7 +68,7 @@ RUN aclocal && automake --add-missing
 RUN autoreconf
 RUN mkdir -p objdir
 WORKDIR objdir
-RUN ../configure --prefix=/usr --with-unix-layout CXXFLAGS="-DSC_DISABLE_COPYRIGHT_MESSAGE -DSC_CPLUSPLUS=201703L"
+RUN ../configure --prefix=/usr --with-unix-layout CXXFLAGS="-DSC_DISABLE_COPYRIGHT_MESSAGE"
 RUN make -j `nproc`
 RUN make install clean
 
@@ -71,21 +86,13 @@ RUN apt-get -y purge build-essential
 RUN apt-get -y purge libtool libltdl-dev
 RUN apt-get -y purge g++
 
-# Now install verilator, this takes an hour or so
-
-# No need to install python3 or make they area already installed
-#RUN apt-get -y install git perl python3 make autoconf g++ flex bison ccache
-# without g++ only use clang symlinks above
-RUN apt-get -y install help2man perl autoconf flex bison ccache mold --no-install-recommends
-RUN apt-get -y install libgoogle-perftools-dev numactl perl-doc --no-install-recommends
-RUN apt-get -y install libfl2 --no-install-recommends
-RUN apt-get -y install libfl-dev --no-install-recommends
-#RUN apt-get -y install zlibc zlib1g zlib1g-dev
-# zlibc not found in 22.04
-RUN apt-get -y install zlib1g zlib1g-dev --no-install-recommends
+# Now install verilator
+RUN apt-get -y install help2man flex bison ccache mold z3 --no-install-recommends
+RUN apt-get -y install libgoogle-perftools-dev numactl --no-install-recommends
+RUN apt-get -y install libfl-dev libgoogle-perftools-dev numactl --no-install-recommends
 
 RUN git config --global http.sslverify false
-RUN git clone https://github.com/verilator/verilator --depth 1 --branch v5.036 /usr/local/src/verilator
+RUN git clone https://github.com/verilator/verilator --depth 1 --branch v5.038 /usr/local/src/verilator
 
 # Every time you need to build:
 RUN unset VERILATOR_ROOT
@@ -97,7 +104,7 @@ RUN make -j `nproc`
 RUN make install clean
 
 # Once complete try to remove autoconf, flex and bison, and certs
-RUN apt-get -y purge autoconf flex bison
+#RUN apt-get -y purge autoconf flex bison
 RUN apt-get clean
 #RUN apt -y autoremove # <- this unfortunatley removes boost libraries so we can't do that
 
