@@ -9,22 +9,36 @@ RUN apt-get -y upgrade
 RUN apt-get -y install make cmake git curl --no-install-recommends
 RUN apt-get -y install ca-certificates
 
+###########################################
+# GCC 13 repository setup in 22.04
+###########################################
+# 1- Add the APT repository key
+RUN mkdir -p /etc/apt/keyrings
+RUN curl -sS "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2c277a0a352154e5" >> /etc/apt/keyrings/ubuntu-toolchain.asc
+RUN curl -sS "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1e9377a2ba9ef27f" >> /etc/apt/keyrings/ubuntu-toolchain.asc
+# 2- Add the repository for PPA ubuntu toolchain to apt sources
+RUN echo "deb [signed-by=/etc/apt/keyrings/ubuntu-toolchain.asc] http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu jammy main" > /etc/apt/sources.list.d/ubuntu-toolchain.list
+
+###########################################
 # LLVM 20 repository setup in 22.04
-# 1- Add the LLVM APT repository key
+###########################################
+# 1- Add the APT repository key
 RUN mkdir -p /etc/apt/keyrings
 RUN curl -o /etc/apt/keyrings/llvm.asc https://apt.llvm.org/llvm-snapshot.gpg.key
 # 2- Add the repository for llvm 20 to apt sources
 RUN echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/llvm.asc] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list
 
-# 3- Update package lists
-RUN apt-get -y update 
-# 4- Install Clang 20 and related tools
+# Update package lists
+RUN apt-get -y update
+
+# Install Clang 20 and related tools
 RUN apt-get -y install clang-20 clang-format-20 --no-install-recommends
 RUN cd /usr/bin && ln -s ../lib/llvm-20/bin/clang clang
 RUN cd /usr/bin && ln -s ../lib/llvm-20/bin/clang++ clang++
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq install default-jre --no-install-recommends
 RUN apt-get -y install python3 python3-pip --no-install-recommends
 RUN apt-get -y install graphviz --no-install-recommends
+RUN apt-get -y install libstdc++-13-dev --no-install-recommends
 
 # c++ yaml parser library
 RUN apt-get -y install libyaml-cpp-dev --no-install-recommends
@@ -57,10 +71,11 @@ RUN make fmt install/fast clean
 
 WORKDIR /
 
-# Thse are needed by systemc
+# These are needed for systemc compilation
 RUN apt-get -y install build-essential lldb gdb # try without lld
 RUN apt-get -y install libtool libltdl-dev
 RUN apt-get -y install valgrind
+
 
 RUN git clone https://github.com/accellera-official/systemc.git --depth 1 --branch 2.3.4 /usr/local/src/systemc
 WORKDIR /usr/local/src/systemc
@@ -69,7 +84,7 @@ RUN aclocal && automake --add-missing
 RUN autoreconf
 RUN mkdir -p objdir
 WORKDIR objdir
-RUN ../configure --prefix=/usr --with-unix-layout CXXFLAGS="-DSC_DISABLE_COPYRIGHT_MESSAGE -gdwarf-4" --enable-debug --enable-pthreads
+RUN ../configure --prefix=/usr --with-unix-layout CXXFLAGS="-std=c++17 -DSC_CPLUSPLUS=201703L -DSC_DISABLE_COPYRIGHT_MESSAGE -gdwarf-4" --enable-debug --enable-pthreads
 RUN make -j `nproc`
 RUN make install clean
 
@@ -85,7 +100,7 @@ ENV LD_BOOST=/lib64
 # purge libs for systemc install
 RUN apt-get -y purge build-essential
 RUN apt-get -y purge libtool libltdl-dev
-RUN apt-get -y purge g++
+RUN apt-get -y purge gcc g++ gcc-11 g++-11
 
 # Now install verilator
 RUN apt-get -y install help2man flex bison ccache mold z3 --no-install-recommends
@@ -103,6 +118,11 @@ RUN autoconf
 RUN ./configure
 RUN make -j `nproc`
 RUN make install clean
+
+# Install GCC 13
+RUN apt-get -y install gcc-13 g++-13
+RUN cd /usr/bin && ln -s gcc-13 gcc
+RUN cd /usr/bin && ln -s g++-13 g++
 
 # Once complete try to remove autoconf, flex and bison, and certs
 #RUN apt-get -y purge autoconf flex bison
