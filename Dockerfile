@@ -2,8 +2,6 @@ FROM ubuntu:22.04 AS prod-build
 
 ARG TAGNAME=null
 
-SHELL ["/bin/bash", "-c"]
-
 RUN apt-get -y update --fix-missing
 RUN apt-get -y upgrade
 RUN apt-get -y install make cmake git curl --no-install-recommends
@@ -32,9 +30,10 @@ RUN echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/llvm.asc] http://apt.llvm.
 RUN apt-get -y update
 
 # Install Clang 20 and related tools
-RUN apt-get -y install clang-20 clang-format-20 --no-install-recommends
+RUN apt-get -y install clang-20 clang-format-20 clangd-20 --no-install-recommends
 RUN cd /usr/bin && ln -s ../lib/llvm-20/bin/clang clang
 RUN cd /usr/bin && ln -s ../lib/llvm-20/bin/clang++ clang++
+RUN cd /usr/bin && ln -s ../lib/llvm-20/bin/clangd clangd
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq install default-jre --no-install-recommends
 RUN apt-get -y install python3 python3-pip --no-install-recommends
 RUN apt-get -y install graphviz --no-install-recommends
@@ -54,9 +53,9 @@ ENV XDG_CONFIG_HOME=/usr/local
 RUN mkdir -p ${XDG_CONFIG_HOME}
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 ENV NVM_DIR=/usr/local/nvm
-RUN /bin/bash -c "source $NVM_DIR/nvm.sh && nvm install 20 --alias=default && npm install -g @antora/cli@3.1 @antora/site-generator@3.1"
+RUN . $NVM_DIR/nvm.sh && nvm install 20 --alias=default && npm install -g @antora/cli@3.1 @antora/site-generator@3.1
 # make path to $NVM_BIN resilient to nvm release version updates
-RUN source $NVM_DIR/nvm.sh && ln -s `dirname $NVM_BIN` `nvm_version_dir`/default
+RUN . $NVM_DIR/nvm.sh && ln -s `dirname $NVM_BIN` `nvm_version_dir`/default
 ENV PATH=$NVM_DIR/versions/node/default/bin:$PATH
 
 # enables color terminal by default
