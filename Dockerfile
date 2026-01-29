@@ -32,9 +32,10 @@ RUN echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/llvm.asc] http://apt.llvm.
 RUN apt-get -y update
 
 # Install Clang 20 and related tools
-RUN apt-get -y install clang-20 clang-format-20 --no-install-recommends
+RUN apt-get -y install clang-20 clang-format-20 clangd-20 --no-install-recommends
 RUN cd /usr/bin && ln -s ../lib/llvm-20/bin/clang clang
 RUN cd /usr/bin && ln -s ../lib/llvm-20/bin/clang++ clang++
+RUN cd /usr/bin && ln -s ../lib/llvm-20/bin/clangd clangd
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq install default-jre --no-install-recommends
 RUN apt-get -y install python3 python3-pip --no-install-recommends
 RUN apt-get -y install graphviz --no-install-recommends
