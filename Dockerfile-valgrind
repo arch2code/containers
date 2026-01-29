@@ -2,8 +2,6 @@ FROM ubuntu:22.04 AS prod-build
 
 ARG TAGNAME=null
 
-SHELL ["/bin/bash", "-c"]
-
 RUN apt-get -y update --fix-missing
 RUN apt-get -y upgrade
 RUN apt-get -y install make cmake git curl --no-install-recommends
@@ -55,9 +53,9 @@ ENV XDG_CONFIG_HOME=/usr/local
 RUN mkdir -p ${XDG_CONFIG_HOME}
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 ENV NVM_DIR=/usr/local/nvm
-RUN /bin/bash -c "source $NVM_DIR/nvm.sh && nvm install 20 --alias=default && npm install -g @antora/cli@3.1 @antora/site-generator@3.1"
+RUN . $NVM_DIR/nvm.sh && nvm install 20 --alias=default && npm install -g @antora/cli@3.1 @antora/site-generator@3.1
 # make path to $NVM_BIN resilient to nvm release version updates
-RUN source $NVM_DIR/nvm.sh && ln -s `dirname $NVM_BIN` `nvm_version_dir`/default
+RUN . $NVM_DIR/nvm.sh && ln -s `dirname $NVM_BIN` `nvm_version_dir`/default
 ENV PATH=$NVM_DIR/versions/node/default/bin:$PATH
 
 # enables color terminal by default
