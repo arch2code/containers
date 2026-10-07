@@ -25,7 +25,7 @@ make prod-build TAGNAME=3.0 DOCKER_PRE_SH=sudo  # rootful podman / docker via su
 | Component | Version | Source |
 | :-------- | :------ | :----- |
 | Base OS | Ubuntu 24.04 | `ubuntu:24.04` |
-| GCC / G++ | 13 (`gcc`, `g++`, `cc`, `c++` link to it) | Ubuntu |
+| GCC / G++ | 13.2.0, pinned (`gcc`, `g++`, `cc`, `c++` link to it) | Ubuntu 24.04 release pocket |
 | Clang, clang-format, clangd | 20 (`clang`, `clang++`, `clangd` link to it) | apt.llvm.org |
 | Boost | 1.74 by default | Ubuntu (`libboost<ver>-all-dev`) |
 | SystemC | 2.3.4 | built from source |
@@ -42,6 +42,9 @@ Environment variables set in the image: `SC_BASE`, `SYSTEMC_INCLUDE`, `SYSTEMC_L
 
 ### Build arguments
 
+- `GCC_VERSION` (default `13.2.0-23ubuntu4`): Ubuntu package version GCC 13 is pinned to.
+  13.2.0 matches the GCC used by the farm simulator (VCS) flows, which sets the compatibility
+  baseline; Clang uses this GCC's libstdc++ headers.
 - `BOOST_VERSION` (default `1.74`): Boost release to install. 1.74 matches the Boost headers used
   on the RHEL farm flows. Pass `--build-arg BOOST_VERSION=1.83` for Ubuntu 24.04's default.
 
@@ -51,13 +54,17 @@ Environment variables set in the image: `SC_BASE`, `SYSTEMC_INCLUDE`, `SYSTEMC_L
   `PIP_BREAK_SYSTEM_PACKAGES=1`, so `pip3 install -r requirements.txt` works as it did on 22.04.
 - **Default `ubuntu` user:** the `test-build` stages remove the user and group that 24.04 ships
   with UID/GID 1000, so a caller with that UID can be created.
-- **Unpinned inputs:** apt packages, the Node.js 24 minor release and `gh` resolve to their latest
-  versions at build time.
+- **Unpinned inputs:** apt packages other than GCC 13, the Node.js 24 minor release and `gh`
+  resolve to their latest versions at build time. Shared runtime libraries such as `libstdc++6`
+  come from the Ubuntu 24.04 archive.
 
 ## Changes from 2.0
 
 - **Base OS:** Ubuntu 22.04 to 24.04; Python 3.10 to 3.12.
-- **Versions:** Verilator 5.038 to 5.052; Node.js 20 to 24; GCC 13.1 to 13.3.
+- **Versions:** Verilator 5.038 to 5.052; Node.js 20 to 24.
+- **GCC:** 13.1 from the ubuntu-toolchain-r test PPA to 13.2.0 from the Ubuntu archive, pinned to
+  match the farm simulator toolchain. The PPA is no longer used, so its pre-release runtime
+  libraries (`libstdc++6`, `libgcc-s1` and others) are no longer installed.
 - **Boost:** 1.74, now selectable with `BOOST_VERSION`.
 - **Added:** clangd, jq, ripgrep and the GitHub CLI; `cc`/`c++` links to GCC 13.
 - **Path fixes:** `SYSTEMC_LIBDIR` (was `/urs/lib`) and `LD_BOOST` (was `/lib64`).

@@ -9,14 +9,13 @@ RUN apt-get -y install ca-certificates
 RUN apt-get -y install jq ripgrep --no-install-recommends
 
 ###########################################
-# GCC 13 repository setup in 24.04
+# GCC 13 pinned to the farm simulator (VCS) toolchain version, 13.2.0
 ###########################################
-# 1- Add the APT repository key
-RUN mkdir -p /etc/apt/keyrings
-RUN curl -sS "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2c277a0a352154e5" >> /etc/apt/keyrings/ubuntu-toolchain.asc
-RUN curl -sS "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1e9377a2ba9ef27f" >> /etc/apt/keyrings/ubuntu-toolchain.asc
-# 2- Add the repository for PPA ubuntu toolchain to apt sources
-RUN echo "deb [signed-by=/etc/apt/keyrings/ubuntu-toolchain.asc] http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu noble main" > /etc/apt/sources.list.d/ubuntu-toolchain.list
+# 24.04 ships GCC 13 itself, so no toolchain PPA is needed. 13.2.0-23ubuntu4 is in the noble
+# release pocket, which never changes. Pinning the source package covers every gcc-13 binary package,
+# including those pulled in by build-essential and clang.
+ARG GCC_VERSION=13.2.0-23ubuntu4
+RUN printf 'Package: src:gcc-13\nPin: version %s\nPin-Priority: 1001\n' "${GCC_VERSION}" > /etc/apt/preferences.d/gcc-13
 
 ###########################################
 # LLVM 20 repository setup in 24.04
