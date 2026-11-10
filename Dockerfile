@@ -107,7 +107,7 @@ RUN apt-get -y purge gcc g++
 RUN apt-get -y install help2man flex bison ccache mold z3 --no-install-recommends
 RUN apt-get -y install libfl-dev libgoogle-perftools-dev numactl --no-install-recommends
 
-RUN git clone https://github.com/verilator/verilator --depth 1 --branch v5.052 /usr/local/src/verilator
+RUN git clone https://github.com/verilator/verilator --depth 1 --branch v5.054 /usr/local/src/verilator
 
 # Every time you need to build:
 RUN unset VERILATOR_ROOT

@@ -14,13 +14,13 @@ compilers, simulators and libraries that arch2code projects build against. Proje
 | `test-build-vg` | `Dockerfile-valgrind` | `arch2code/a2c-dev-vg-test:<TAGNAME>` | Valgrind image plus a non-root user |
 
 ```sh
-make prod-build TAGNAME=3.0                     # docker
-make prod-build TAGNAME=3.0 DOCKER_PRE_SH=sudo  # rootful podman / docker via sudo
+make prod-build TAGNAME=3.1                     # docker
+make prod-build TAGNAME=3.1 DOCKER_PRE_SH=sudo  # rootful podman / docker via sudo
 ```
 
 `TAGNAME` defaults to `wip`. It is also written into the image as the marker file `/a2c-dev:<TAGNAME>`.
 
-## Contents (3.0)
+## Contents (3.1)
 
 | Component | Version | Source |
 | :-------- | :------ | :----- |
@@ -29,7 +29,7 @@ make prod-build TAGNAME=3.0 DOCKER_PRE_SH=sudo  # rootful podman / docker via su
 | Clang, clang-format, clangd | 20 (`clang`, `clang++`, `clangd` link to it) | apt.llvm.org |
 | Boost | 1.74 by default | Ubuntu (`libboost<ver>-all-dev`) |
 | SystemC | 2.3.4 | built from source |
-| Verilator | 5.052 | built from source |
+| Verilator | 5.054 | built from source |
 | fmt | 10.2.1 | built from source |
 | yaml-cpp | 0.8 | Ubuntu |
 | Python | 3.12, with ruamel.yaml, colorama, graphviz, jinja2, pyyaml | Ubuntu, pip |
@@ -57,6 +57,10 @@ Environment variables set in the image: `SC_BASE`, `SYSTEMC_INCLUDE`, `SYSTEMC_L
 - **Unpinned inputs:** apt packages other than GCC 13, the Node.js 24 minor release and `gh`
   resolve to their latest versions at build time. Shared runtime libraries such as `libstdc++6`
   come from the Ubuntu 24.04 archive.
+
+## Changes from 3.0
+
+- **Verilator:** 5.052 to 5.054.
 
 ## Changes from 2.0
 
